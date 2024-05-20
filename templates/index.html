@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Processing App</title>
+    <style>
+        .recording-animation {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: red;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+                    isRecording = true;
+                    recordingAnimation.style.display = 'inline-block';
+                })
+                .catch(error => console.error('Error accessing media devices:', error));
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio_file', audioBlob, 'recorded_audio.wav');
+
+                fetch('/process_audio', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.blob())
+                .then(blob => {
+                    const audioUrl = URL.createObjectURL(blob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                })
+                .catch(error => console.error('Error uploading audio:', error));
+
+                audioChunks = [];
+                isRecording = false;
+                recordingAnimation.style.display = 'none';
+            };
+        }
+    </script>
+</head>
+<body>
+    <h1>Audio Processing App</h1>
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <span class="recording-animation"></span>
+</body>
+</html>
